@@ -1,0 +1,1 @@
+<span class="pill {{ status_class|default:'neutral' }}">{{ order.get_status_display }}</span><small class="order-status-updated">Last updated <time datetime="{{ order.updated_at|date:'c' }}">{{ order.updated_at|date:'M j, Y, g:i A T' }}</time></small>

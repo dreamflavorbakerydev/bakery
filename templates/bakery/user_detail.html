@@ -1,0 +1,25 @@
+{% extends 'bakery/base.html' %}
+{% block title %}{{ person.username }} · Logins & access{% endblock %}
+{% block breadcrumb %}Administration / Logins & access / {{ person.username }}{% endblock %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">LOGINS & ACCESS</span><h1>{{ person.get_full_name|default:person.username }}</h1><p>Manage this person's login and customer assignments together.</p></div><a class="button secondary" href="{% url 'workspace-users' %}">← All logins</a></div>
+<form method="post" class="workspace-form login-editor">{% csrf_token %}
+<section class="card"><div class="card-heading"><h2>Login details & role</h2><span class="pill {% if person.is_active %}green{% else %}neutral{% endif %}">{{ person.is_active|yesno:'Active,Inactive' }}</span></div>
+{% if form %}{{ form.non_field_errors }}<div class="form-grid">{% for field in form %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="required"> *</span>{% endif %}</label>{{ field }}{{ field.errors }}{% if field.help_text %}<div class="helptext">{{ field.help_text|safe }}</div>{% endif %}</div>{% endfor %}</div>{% else %}<dl class="account-details"><dt>Username</dt><dd>{{ person.username }}</dd><dt>Role</dt><dd>{% if person.is_superuser %}Administrator{% else %}{% for role in person.groups.all %}{{ role.name }}{% empty %}Not assigned{% endfor %}{% endif %}</dd></dl><p class="small">An administrator manages login details and roles.</p>{% endif %}</section>
+{% if access_forms %}<section class="card spaced"><div class="card-heading"><div><h2>Customer access</h2><p>Select each customer this person can access. Deactivate an assignment to retain its history.</p></div></div>
+{% if can_edit_access or can_add_access %}{{ access_forms.management_form }}{{ access_forms.non_form_errors }}<div id="access-assignments">{% for assignment_form in access_forms %}{% include 'bakery/access_form.html' %}{% endfor %}</div>
+{% if can_add_access %}<button class="button secondary" type="button" id="add-assignment">+ Add another customer</button><template id="empty-assignment">{% include 'bakery/access_form.html' with assignment_form=access_forms.empty_form %}</template>{% endif %}
+{% else %}{% for assignment in assignments %}<div class="check-row"><div><strong>{{ assignment.customer.customer_name }}</strong><small>{{ assignment.location.address }} · {{ assignment.active|yesno:'Active,Inactive' }}</small></div></div>{% empty %}<p>No customers assigned.</p>{% endfor %}{% endif %}
+<p class="small access-help">Customer assignments control which customers a customer login can access. Team roles have their own workspace permissions. An inactive login cannot sign in.</p></section>{% endif %}
+<div class="form-actions">{% if can_save %}<button class="button primary">Save login & access →</button>{% endif %}<a class="button secondary" href="{% url 'workspace-users' %}">Cancel</a></div>
+</form>
+{% if can_add_access %}<script>
+document.getElementById('add-assignment').addEventListener('click', function () {
+    const total = document.getElementById('id_access-TOTAL_FORMS');
+    if (Number(total.value) >= 200) return;
+    const markup = document.getElementById('empty-assignment').innerHTML.replaceAll('__prefix__', total.value);
+    document.getElementById('access-assignments').insertAdjacentHTML('beforeend', markup);
+    total.value = Number(total.value) + 1;
+});
+</script>{% endif %}
+{% endblock %}

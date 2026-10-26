@@ -1,0 +1,5 @@
+<nav class="product-navigation" aria-label="Products and pricing">
+<a href="{% url 'products' %}" {% if section == 'catalog' %}aria-current="page"{% endif %}>Product catalog</a>
+<a href="{% url 'special-prices' %}" {% if section == 'special-prices' %}aria-current="page"{% endif %}>Customer special prices</a>
+<a href="{% url 'price-records' %}" {% if section == 'price-records' %}aria-current="page"{% endif %}>Price records</a>
+</nav>

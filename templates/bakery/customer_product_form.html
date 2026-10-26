@@ -1,0 +1,5 @@
+<fieldset class="customer-product-setting">
+<legend>{% if product_form.instance.pk %}{{ product_form.instance.product.product_name }}{% else %}Product setting{% endif %}</legend>
+{{ product_form.non_field_errors }}{% for hidden in product_form.hidden_fields %}{{ hidden }}{{ hidden.errors }}{% endfor %}
+<div class="form-grid">{% for field in product_form.visible_fields %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}</div>
+</fieldset>

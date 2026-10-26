@@ -1,0 +1,3 @@
+{% extends 'bakery/base.html' %}{% block title %}Start an order{% endblock %}{% block content %}
+<div class="page-heading"><div><span class="eyebrow">NEW ORDER</span><h1>Where are we delivering?</h1><p>Choose your customer to see its products and delivery dates.</p></div></div>
+<div class="delivery-choice-list">{% for location in locations %}<section class="card delivery-choice"><div><h2>{{ location.location_name }}</h2><p>{{ location.customer.customer_name }} · {{ location.address }}</p></div><a class="button primary" href="?location={{ location.pk }}">Order for this customer →</a></section>{% empty %}<section class="card"><h2>Your customer access needs setup.</h2><p>Ask the bakery to assign a customer to your login.</p></section>{% endfor %}</div>{% endblock %}

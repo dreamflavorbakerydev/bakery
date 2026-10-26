@@ -1,0 +1,8 @@
+{% extends 'bakery/base.html' %}
+{% block title %}Administration{% endblock %}
+{% block breadcrumb %}Workspace / Administration{% endblock %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">YOUR BAKERY, YOUR WAY</span><h1>A home for the details.</h1><p>Manage logins, customer access, and the change trail.</p></div></div>
+<section class="admin-modules">{% if can_manage_users %}<a class="admin-module" href="{% url 'workspace-users' %}"><div class="module-top"><span class="module-icon" aria-hidden="true">&#9752;</span><span class="pill neutral">{{ user_count }} logins</span></div><h2>Logins &amp; access</h2><p>Manage team and customer logins, roles, and customer assignments.</p><span class="module-link">Manage logins &amp; access <span>&rarr;</span></span></a>{% endif %}<a class="admin-module" href="{% url 'workspace-audit' %}"><div class="module-top"><span class="module-icon" aria-hidden="true">&#8635;</span></div><h2>Change trail</h2><p>Review changes to customer details, products, prices, and access.</p><span class="module-link">View change trail <span>&rarr;</span></span></a></section>
+<section class="card spaced"><div class="card-heading"><div><h2>A clear change trail</h2><p>Important changes to products, pricing, and customer data.</p></div><a href="{% url 'workspace-audit' %}">View all changes →</a></div>{% for change in changes %}<div class="audit-row"><span class="pill neutral">{{ change.display_name }}</span><span>{{ change.source_label }}</span><small>{{ change.created_at|date:'M j, g:i A' }}</small></div>{% empty %}<p class="muted">Changes appear here as your team updates the workspace.</p>{% endfor %}</section>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends 'bakery/base.html' %}
+{% block title %}Delete special price{% endblock %}
+{% block breadcrumb %}Products &amp; Pricing / Special prices{% endblock %}
+{% block content %}
+{% include 'bakery/product_navigation.html' with section='special-prices' %}
+<div class="page-heading"><div><span class="eyebrow">CUSTOMER PRICING</span><h1>Delete special price?</h1><p>Review the price you are removing.</p></div></div>
+<section class="card special-price-delete">
+<dl class="account-details"><dt>Customer</dt><dd>{{ price.customer.customer_name }}</dd><dt>Product</dt><dd>{{ price.product.product_name }} <small>({{ price.product.internal_product_code }})</small></dd><dt>Special price</dt><dd>${{ price.override_price|floatformat:2 }}</dd><dt>Effective</dt><dd>{{ price.effective_date|date:'M j, Y' }}</dd><dt>Expires</dt><dd>{{ price.expiration_date|date:'M j, Y'|default:'Open-ended' }}</dd><dt>Status</dt><dd>{{ price.active|yesno:'Active,Inactive' }}</dd></dl>
+<p>Customer pricing will use any other applicable special price, or their zone price. Existing order totals stay unchanged.</p>
+<form method="post" class="form-actions">{% csrf_token %}<button type="submit" class="button danger">Delete special price</button><a class="button secondary" href="{% url 'special-prices' %}">Cancel</a></form>
+</section>
+{% endblock %}
