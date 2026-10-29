@@ -1,10 +1,17 @@
 import os
 import secrets
 from pathlib import Path
+import dj_database_url
+from dotenv import load_dotenv
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DEBUG = os.environ.get('DJANGO_DEBUG', '1') == '1'
+env_file = BASE_DIR / ('.env' if (BASE_DIR / '.env').exists() else '.env.local')
+load_dotenv(env_file)
+IS_VERCEL = os.environ.get('VERCEL') == '1' or any(
+    os.environ.get(name) for name in ('VERCEL_ENV', 'VERCEL_URL')
+)
+DEBUG = os.environ.get('DJANGO_DEBUG', '0' if IS_VERCEL else '1') == '1'
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 if not SECRET_KEY:
     if not DEBUG:
@@ -17,6 +24,13 @@ if not SECRET_KEY:
 ALLOWED_HOSTS = [host.strip() for host in os.environ.get(
     'DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],bakery.elaineanderic.com'
 ).split(',') if host.strip()]
+for vercel_host in (
+    os.environ.get('VERCEL_URL'),
+    os.environ.get('VERCEL_PROJECT_PRODUCTION_URL'),
+    'bakery-tau-brown.vercel.app',
+):
+    if vercel_host and vercel_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(vercel_host)
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.environ.get(
     'DJANGO_CSRF_TRUSTED_ORIGINS', 'https://bakery.elaineanderic.com'
 ).split(',') if origin.strip()]
@@ -40,7 +54,19 @@ TEMPLATES = [{
     ]},
 }]
 WSGI_APPLICATION = 'config.wsgi.application'
-DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3'}}
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    DATABASES = {'default': dj_database_url.parse(
+        DATABASE_URL,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )}
+    if not DEBUG and DATABASES['default']['ENGINE'] != 'django.db.backends.postgresql':
+        raise ImproperlyConfigured('DATABASE_URL must use PostgreSQL when DJANGO_DEBUG=0.')
+elif DEBUG:
+    DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3'}}
+else:
+    raise ImproperlyConfigured('Set DATABASE_URL to a PostgreSQL connection string when DJANGO_DEBUG=0.')
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},

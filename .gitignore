@@ -17,3 +17,5 @@ DFB_Products_Nelson.xlsx
 ~$*
 WhatsApp Image*.jpeg
 docs/data/whatsapp-customers.json
+.neon
+node_modules/

@@ -12,7 +12,7 @@ The GitHub repository contains the application, migrations, tests, and documenta
 
 ## Run locally on Windows
 
-Python 3.13 and Django 5.2 are used. SQLite is for local development.
+Python 3.13 and Django 5.2 are used. Local development defaults to SQLite; set `DATABASE_URL` to use PostgreSQL locally or in deployment. Production mode (`DJANGO_DEBUG=0`) requires PostgreSQL and never falls back to SQLite.
 
 ```powershell
 cd C:\Users\tiram\Bakery
@@ -24,7 +24,21 @@ python -m venv .venv
 .\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8765
 ```
 
-Open http://127.0.0.1:8765 and sign in using the administrator you created. The local secret is generated once in ignored `.django-secret`; keep it private. Settings read deployment values from process environment variables, not from a dotenv file.
+To run locally against PostgreSQL, set `DATABASE_URL` in the current PowerShell session before running migrations or starting Django:
+
+```powershell
+$env:DATABASE_URL = "postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"
+.\.venv\Scripts\python.exe manage.py migrate
+.\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8765
+```
+
+For Neon, use the connection string from the Neon dashboard and keep its `sslmode=require` query parameter. Store the real value in the hosting provider's secret/environment settings, not in source control.
+
+### Deploy on Vercel
+
+Set these project environment variables in Vercel for Production and Preview, then redeploy: `DJANGO_DEBUG=0`, a private `DJANGO_SECRET_KEY`, `DATABASE_URL` set to Neon's pooled connection URL, and `DJANGO_ALLOWED_HOSTS=bakery-tau-brown.vercel.app,bakery.elaineanderic.com`. Enable Vercel system environment variables so each deployment's `VERCEL_URL` is also allowed automatically. The application adds its known Vercel URL hosts and requires PostgreSQL on Vercel; local `.env.local` values are not automatically available to deployed functions.
+
+Open http://127.0.0.1:8765 and sign in using the administrator you created. The local secret is generated once in ignored `.django-secret`; keep it private. Django loads `.env` (or `.env.local` when `.env` is absent) for local development; process environment variables take precedence. Configure deployment secrets in the hosting provider rather than relying on local dotenv files.
 
 Once `.venv` is installed, plain commands such as `python manage.py runserver 0.0.0.0:1122` automatically use the project environment when run from global Python. An explicitly activated virtual environment is respected. The launcher reports a clear error if that environment has an incompatible Django version. This avoids the `CheckConstraint` error caused by the global Django 5.0 installation. When binding to `0.0.0.0`, open `http://127.0.0.1:1122` locally; for access from another computer, include the bakery computer's hostname or LAN IP in `DJANGO_ALLOWED_HOSTS`.
 
@@ -63,7 +77,21 @@ Optional visual QA (with the development server already running on port 8765): i
 
 ## Before deployment
 
-This is a local application, not a deployed ordering service. New order numbers use the database ID in a short sequential format (`B-000001`, `B-000002`, and so on), allocated when the draft is created; existing references remain unchanged, and cancelled orders keep their numbers. Repeat submission is idempotent, status changes use conditional updates, and SQLite writer conflicts retry whole transactions. Concurrent duplicate submissions were checked on a disposable file database. Use PostgreSQL and verify concurrent workflows against it before deploying at larger scale. Add deployment database settings and the PostgreSQL driver, a WSGI server, TLS/static serving, backups, and login throttling before exposing customer accounts on the internet.
+This is a local application, not a deployed ordering service. New order numbers use the database ID in a short sequential format (`B-000001`, `B-000002`, and so on), allocated when the draft is created; existing references remain unchanged, and cancelled orders keep their numbers. Repeat submission is idempotent, status changes use conditional updates, and SQLite writer conflicts retry whole transactions. Concurrent duplicate submissions were checked on a disposable file database. Before deploying, verify concurrent workflows on PostgreSQL, configure a WSGI server, TLS/static serving, backups, and login throttling.
+
+### Move existing SQLite data to PostgreSQL/Neon
+
+Stop the bakery app so no orders or other records change during the transfer. With `DATABASE_URL` unset, export the current SQLite data to a private fixture file, then set the Neon URL, create the schema, and load that fixture. Keep a separate copy of `db.sqlite3` as a rollback backup and do not commit the fixture or connection string.
+
+```powershell
+Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+.\.venv\Scripts\python.exe manage.py dumpdata --natural-foreign --natural-primary --exclude contenttypes --exclude auth.permission --output bakery-data.json
+$env:DATABASE_URL = "postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"
+.\.venv\Scripts\python.exe manage.py migrate
+.\.venv\Scripts\python.exe manage.py loaddata bakery-data.json
+```
+
+Check users, customer access, products/prices, and order history in the new database before pointing the live app at it. `loaddata` loads records; it does not migrate the SQLite file itself. Delete the private fixture securely after verifying the transfer.
 
 Set `DJANGO_DEBUG=0`, a private `DJANGO_SECRET_KEY`, and comma-separated `DJANGO_ALLOWED_HOSTS` (include `bakery.elaineanderic.com` when overriding the default host list). Non-debug mode requires an explicit secret and enables secure cookies, HTTPS redirect, and HSTS. Run `manage.py check --deploy` against the deployment configuration and arrange HTTPS before enabling those settings. Do not use Django's development server for deployment.
 
