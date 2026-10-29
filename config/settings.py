@@ -27,6 +27,7 @@ ALLOWED_HOSTS = [host.strip() for host in os.environ.get(
 for vercel_host in (
     os.environ.get('VERCEL_URL'),
     os.environ.get('VERCEL_PROJECT_PRODUCTION_URL'),
+    '.dream-flavor-bakery.vercel.app',
     'bakery-tau-brown.vercel.app',
 ):
     if vercel_host and vercel_host not in ALLOWED_HOSTS:
