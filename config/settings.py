@@ -56,18 +56,15 @@ TEMPLATES = [{
 }]
 WSGI_APPLICATION = 'config.wsgi.application'
 DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    DATABASES = {'default': dj_database_url.parse(
-        DATABASE_URL,
-        conn_max_age=600,
-        conn_health_checks=True,
-    )}
-    if not DEBUG and DATABASES['default']['ENGINE'] != 'django.db.backends.postgresql':
-        raise ImproperlyConfigured('DATABASE_URL must use PostgreSQL when DJANGO_DEBUG=0.')
-elif DEBUG:
-    DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3'}}
-else:
-    raise ImproperlyConfigured('Set DATABASE_URL to a PostgreSQL connection string when DJANGO_DEBUG=0.')
+if not DATABASE_URL:
+    raise ImproperlyConfigured('Set DATABASE_URL to the Neon PostgreSQL connection string.')
+DATABASES = {'default': dj_database_url.parse(
+    DATABASE_URL,
+    conn_max_age=600,
+    conn_health_checks=True,
+)}
+if DATABASES['default']['ENGINE'] != 'django.db.backends.postgresql':
+    raise ImproperlyConfigured('DATABASE_URL must use PostgreSQL; SQLite is not supported.')
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},

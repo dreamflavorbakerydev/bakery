@@ -12,7 +12,7 @@ The GitHub repository contains the application, migrations, tests, and documenta
 
 ## Run locally on Windows
 
-Python 3.13 and Django 5.2 are used. Local development defaults to SQLite; set `DATABASE_URL` to use PostgreSQL locally or in deployment. Production mode (`DJANGO_DEBUG=0`) requires PostgreSQL and never falls back to SQLite.
+Python 3.13 and Django 5.2 are used. Neon PostgreSQL is required for local development and deployment; SQLite is not supported. Django reads `DATABASE_URL` from `.env` or `.env.local`, or from the process environment.
 
 ```powershell
 cd C:\Users\tiram\Bakery
@@ -24,15 +24,15 @@ python -m venv .venv
 .\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8765
 ```
 
-To run locally against PostgreSQL, set `DATABASE_URL` in the current PowerShell session before running migrations or starting Django:
+Pull the Neon branch environment into the ignored `.env.local` file, then run migrations and start the app:
 
 ```powershell
-$env:DATABASE_URL = "postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"
+npx neon@latest env pull
 .\.venv\Scripts\python.exe manage.py migrate
 .\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8765
 ```
 
-For Neon, use the connection string from the Neon dashboard and keep its `sslmode=require` query parameter. Store the real value in the hosting provider's secret/environment settings, not in source control.
+Use Neon's pooled URL for web requests and its direct/unpooled URL for schema migrations. Keep `.env.local` private and never commit database credentials.
 
 ### Deploy on Vercel
 
@@ -71,27 +71,13 @@ Office navigation shows a red dot beside Orders when an order has been submitted
 .\.venv\Scripts\python.exe manage.py test bakery
 ```
 
-The tests use isolated fictional fixtures in a disposable test database. They cover schema integrity, customer/location isolation, role denial, authentication/CSRF, dated pricing precedence and missing-zone behavior, fixed-query catalog pricing, historical-line preservation, cutoff boundaries/timezones/DST, import insert/update/skip/audit, rollback, dry-run, duplicate/unknown columns, identifier preservation, and Excel validation.
+The tests use isolated fictional fixtures in a disposable PostgreSQL test database. They cover schema integrity, customer/location isolation, role denial, authentication/CSRF, dated pricing precedence and missing-zone behavior, fixed-query catalog pricing, historical-line preservation, cutoff boundaries/timezones/DST, import insert/update/skip/audit, rollback, dry-run, duplicate/unknown columns, identifier preservation, and Excel validation.
 
 Optional visual QA (with the development server already running on port 8765): install `requirements-dev.txt`, run `python -m playwright install chromium`, then run `.\.venv\Scripts\python.exe tools\verify_ui.py`. It creates and removes one temporary administrator, changes no business records, and saves screenshots in ignored `artifacts/`. Initial verification passed 66 tests and desktop/mobile browser checks. The in-app browser was unavailable, so visual verification used an installed local headless Chromium browser.
 
 ## Before deployment
 
-This is a local application, not a deployed ordering service. New order numbers use the database ID in a short sequential format (`B-000001`, `B-000002`, and so on), allocated when the draft is created; existing references remain unchanged, and cancelled orders keep their numbers. Repeat submission is idempotent, status changes use conditional updates, and SQLite writer conflicts retry whole transactions. Concurrent duplicate submissions were checked on a disposable file database. Before deploying, verify concurrent workflows on PostgreSQL, configure a WSGI server, TLS/static serving, backups, and login throttling.
-
-### Move existing SQLite data to PostgreSQL/Neon
-
-Stop the bakery app so no orders or other records change during the transfer. With `DATABASE_URL` unset, export the current SQLite data to a private fixture file, then set the Neon URL, create the schema, and load that fixture. Keep a separate copy of `db.sqlite3` as a rollback backup and do not commit the fixture or connection string.
-
-```powershell
-Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
-.\.venv\Scripts\python.exe manage.py dumpdata --natural-foreign --natural-primary --exclude contenttypes --exclude auth.permission --output bakery-data.json
-$env:DATABASE_URL = "postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"
-.\.venv\Scripts\python.exe manage.py migrate
-.\.venv\Scripts\python.exe manage.py loaddata bakery-data.json
-```
-
-Check users, customer access, products/prices, and order history in the new database before pointing the live app at it. `loaddata` loads records; it does not migrate the SQLite file itself. Delete the private fixture securely after verifying the transfer.
+This is a local application, not a deployed ordering service. New order numbers use the database ID in a short sequential format (`B-000001`, `B-000002`, and so on), allocated when the draft is created; existing references remain unchanged, and cancelled orders keep their numbers. Repeat submission is idempotent and status changes use conditional updates. Use Neon PostgreSQL for local development and production, and verify concurrent workflows there before broader deployment. Configure a WSGI server, TLS/static serving, backups, and login throttling before exposing customer accounts publicly. The old `db.sqlite3`, if present, is not read by the application.
 
 Set `DJANGO_DEBUG=0`, a private `DJANGO_SECRET_KEY`, and comma-separated `DJANGO_ALLOWED_HOSTS` (include `bakery.elaineanderic.com` when overriding the default host list). Non-debug mode requires an explicit secret and enables secure cookies, HTTPS redirect, and HSTS. Run `manage.py check --deploy` against the deployment configuration and arrange HTTPS before enabling those settings. Do not use Django's development server for deployment.
 
