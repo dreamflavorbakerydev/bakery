@@ -1,0 +1,11 @@
+{% extends 'bakery/base.html' %}{% load static %}{% block title %}Selected orders{% endblock %}{% block content %}
+<div class="order-document-toolbar"><a href="{% url 'orders' %}">&larr; Back to orders</a><button class="button secondary" type="button" onclick="window.print()">Print orders</button></div>
+{% for order in orders %}
+<article class="order-document" aria-label="Order {{ order.order_number }}">
+<div class="page-heading"><div><span class="eyebrow">ORDER DETAILS</span><h1>{{ order.customer_location.location_name }}</h1><p>{{ order.customer.customer_name }} · {{ order.order_number }}</p></div><div class="order-status-summary">{% include 'bakery/order_status.html' with status_class='warm' %}</div></div>
+{% if order.requires_approval %}<div class="review-banner">This delivery is past its cutoff. Bakery approval is required before it enters the bake totals.</div>{% endif %}
+<section class="card">{% include 'bakery/order_document_body.html' with lines=order.items.all document_only=True %}</section>
+</article>
+{% endfor %}
+<script src="{% static 'bakery/order-document-print.js' %}" defer></script>
+{% endblock %}

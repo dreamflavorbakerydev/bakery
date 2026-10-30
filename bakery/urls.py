@@ -5,6 +5,7 @@ from bakery import order_views
 
 urlpatterns = [
     path('orders/', order_views.order_list, name='orders'),
+    path('orders/documents/', order_views.order_documents, name='order-documents'),
     path('orders/new/', order_views.new_order, name='order-new'),
     path('orders/prices/', order_views.order_prices, name='order-prices'),
     path('orders/notifications/', order_views.order_notifications, name='order-notifications'),

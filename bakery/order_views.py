@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Sum
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
@@ -157,6 +157,33 @@ def order_list(request):
 @office_required
 def order_notifications(request):
     response = JsonResponse({'has_new_orders': has_new_orders(request.user)})
+    response['Cache-Control'] = 'private, no-store'
+    return response
+
+
+@require_GET
+@login_required
+def order_documents(request):
+    raw_ids = request.GET.getlist('order')
+    action = request.GET.get('action', 'print')
+    if not raw_ids or len(raw_ids) > 100 or action not in ('print', 'download'):
+        return HttpResponseBadRequest('Select between 1 and 100 orders and a valid action.')
+    if any(not value.isascii() or not value.isdecimal() or len(value) > 18 for value in raw_ids):
+        return HttpResponseBadRequest('Invalid order selection.')
+    ids = list(dict.fromkeys(int(value) for value in raw_ids))
+    records = orders_for(request.user).filter(pk__in=ids).select_related(
+        'customer', 'customer_location').prefetch_related('items__product')
+    by_id = {order.pk: order for order in records}
+    if len(by_id) != len(ids):
+        raise Http404
+    orders = [by_id[pk] for pk in ids]
+    if action == 'print':
+        response = render(request, 'bakery/order_documents.html', {'orders': orders})
+    else:
+        from bakery.services.order_documents import download_orders
+        content, content_type, filename = download_orders(orders)
+        response = HttpResponse(content, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
     response['Cache-Control'] = 'private, no-store'
     return response
 

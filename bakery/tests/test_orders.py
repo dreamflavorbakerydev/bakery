@@ -339,7 +339,7 @@ class OrderingTests(FoundationFixture):
         self.client.force_login(self.office)
         self.assertEqual(self.client.get(reverse('bake-plan')).status_code, 200)
         self.assertContains(self.client.get(reverse('dashboard')), 'Print status overview')
-        self.assertContains(self.client.get(reverse('orders')), 'Print orders')
+        self.assertContains(self.client.get(reverse('orders')), 'data-print-orders>Print</button>')
         self.assertContains(self.client.get(reverse('bake-plan')), 'Print bake totals')
         self.assertContains(self.client.get(reverse('order-detail', args=[order.pk])), 'Print order')
 

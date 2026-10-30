@@ -1,6 +1,6 @@
 {% load static %}<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{% block title %}Bakery{% endblock %} · Bakery</title><link rel="icon" type="image/png" href="{% static 'bakery/favicon.png' %}?v=2"><link rel="stylesheet" href="{% static 'bakery/app.css' %}?v=mobile-account-top-3"><link rel="stylesheet" href="{% static 'bakery/workspace.css' %}?v=customer-products-3"></head>
-<body><link rel="stylesheet" href="{% static 'bakery/orders.css' %}?v=order-selection-5"><div class="app-shell">
+<body><link rel="stylesheet" href="{% static 'bakery/orders.css' %}?v=order-documents-6"><div class="app-shell">
 <aside class="sidebar"><a class="brand" href="{% url 'dashboard' %}"><img class="brand-icon" src="{% static 'bakery/logo.png' %}" alt="" width="43" height="43"><span>bakery<span class="brand-caption">A better day, baked in.</span></span></a>
 <div class="workspace-label">{% if office_user %}BAKERY WORKSPACE{% elif production_user %}PRODUCTION WORKSPACE{% else %}YOUR BAKERY{% endif %}</div>
 <nav aria-label="Main navigation">
