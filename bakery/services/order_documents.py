@@ -25,6 +25,7 @@ def order_pdf(order):
     heading = ParagraphStyle('OrderHeading', parent=body, fontName='OrderVeraBold', fontSize=20, leading=26)
     bold = ParagraphStyle('OrderBold', parent=body, fontName='OrderVeraBold')
     right = ParagraphStyle('OrderRight', parent=body, alignment=TA_RIGHT)
+    bold_right = ParagraphStyle('OrderBoldRight', parent=bold, alignment=TA_RIGHT)
 
     def text(value, style=body):
         return Paragraph(escape(str(value or '—')).replace('\n', '<br/>'), style)
@@ -46,24 +47,30 @@ def order_pdf(order):
     for label, value in details:
         story.extend([text(label, bold), text(value)])
     story.append(Spacer(1, 14))
-    rows = [[text(label, bold) for label in ['Product', 'Quantity', 'Unit price', 'Total', 'Bake date']]]
+    rows = [[text(label, bold_right if index in (1, 2, 3) else bold)
+        for index, label in enumerate(['Product', 'Quantity', 'Unit price', 'Total', 'Bake date'])]]
     for line in order.items.all():
-        quantity = f'{line.quantity} {line.unit_of_measure}'
+        quantity = f'{line.quantity}\n{line.unit_of_measure}'
         if line.pack_size > 1:
             quantity += f' of {line.pack_size}'
         identifier = f'{line.customer_sku or line.upc} · {line.product.internal_product_code}'
-        rows.append([text(f'{line.product_name}\n{identifier}'), text(quantity),
+        rows.append([text(f'{line.product_name}\n{identifier}'), text(quantity, right),
             text(f'${line.unit_price:,.2f}', right), text(f'${line.line_total:,.2f}', right),
             text(line.required_production_date.strftime('%b %d, %Y'))])
-    table = Table(rows, colWidths=[204, 87, 72, 72, 105], repeatRows=1, hAlign='LEFT')
+    rows.append([text('Order total', bold_right), '', '', text(f'${order.total:,.2f}', bold_right), ''])
+    table = Table(rows, colWidths=[216, 86, 70, 70, 98], repeatRows=1, hAlign='LEFT')
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f3f6f0')),
         ('LINEBELOW', (0, 0), (-1, -1), .4, colors.HexColor('#dfe5da')),
+        ('SPAN', (0, -1), (2, -1)),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f3f6f0')),
+        ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor('#aab7a7')),
+        ('NOSPLIT', (0, -2), (-1, -1)),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 0), (-1, -1), 6), ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ('TOPPADDING', (0, 0), (-1, -1), 9), ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
     ]))
-    story.extend([table, Spacer(1, 18), text(f'Order total: ${order.total:,.2f}', heading)])
+    story.append(table)
     doc.build(story)
     return output.getvalue()
 
