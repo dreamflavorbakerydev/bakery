@@ -1,5 +1,8 @@
 # Bakery
 
+Proposed deployment automation and its approval/setup requirements are documented
+in [the CI/CD guide](docs/ci-cd.md). Production automation is disabled by default.
+
 Python/Django bakery ordering and production planning application, implemented incrementally according to the supplied specification. **Customer submission, bakery order handling, and aggregated bake demand are enabled.**
 
 Working features: custom Bakery administration, product and customer editing, nine-value zone price grids, SKU-specific special prices, login creation/role editing, atomic/idempotent CSV/XLSX imports and template downloads, individual logins/password changes, explicit role permissions and location access, customer-scoped product catalogs, centralized dated zone/override pricing, delivery calendars/cutoffs/late policies, master-data audit trail, and responsive screens.
