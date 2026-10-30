@@ -91,6 +91,7 @@ enter their values securely in environment settings, not in chat:
 
 | Cloud secret | Destination | Use |
 | --- | --- | --- |
+| `GITHUB_SETUP_TOKEN` | `api.github.com` | Repository-scoped administration access for deployment environments, Actions secrets/variables, and protection settings that the existing connection cannot manage. |
 | `VERCEL_SETUP_TOKEN` | `api.vercel.com` | Inspect existing Vercel integrations and configure the separate preview project. |
 | `NEON_SETUP_API_KEY` | `console.neon.tech` | Inspect Neon configuration and prepare the nonproduction preview project/baseline. |
 
@@ -102,7 +103,15 @@ read-only production access for inspection and write access only for preview
 resources. No production resource change or migration is authorized by this
 setup step.
 
-The GitHub connection must additionally support managing repository Actions
+For the GitHub setup token, use a fine-grained token limited to
+`dreamflavorbakerydev/bakery`: Environments, Secrets, Variables, and
+Administration read/write; Actions and Webhooks read access for inventory.
+Obtain repository-owner authorization where GitHub requires it. Keep normal
+Git pushes and PR creation on the working platform authentication; the separate
+setup token is only for the explicitly authorized administration requests.
+Never print or write its value into the checkout.
+
+Alternatively, the GitHub connection must additionally support managing repository Actions
 variables/secrets, deployment environments, and reviewing protection/webhook
 settings. Current requests fail with `Resource not accessible by integration`.
 If the connection cannot receive those permissions, an authenticated repository
