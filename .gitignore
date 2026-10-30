@@ -19,3 +19,4 @@ WhatsApp Image*.jpeg
 docs/data/whatsapp-customers.json
 .neon
 node_modules/
+.vercel/
