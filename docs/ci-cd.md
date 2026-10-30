@@ -1,8 +1,56 @@
 # Proposed CI/CD workflow (activation requires owner approval)
 
-This change prepares automation for review. It does not configure GitHub,
-Vercel, or Neon accounts, run production migrations, or deploy anything.
-Both deployment switches are off unless explicitly set to `true` in GitHub.
+The owner approved the workflow on October 30, 2026, with a separate approval
+required **before the first production migration or production deployment**.
+Continue setup and preview validation, but leave `CICD_PRODUCTION_ENABLED`
+unset/false until that specific release approval. Workflow approval alone does
+not authorize merging this PR or starting the production candidate build.
+
+## Component setup progress
+
+The setup credentials now authenticate with GitHub, Vercel, and Neon. Two
+isolated preview projects have been created without modifying production:
+
+| GitHub variable | Verified value |
+| --- | --- |
+| `VERCEL_ORG_ID` | `team_zS6Uy4YLIfwbozJHrYtIHFPc` |
+| `VERCEL_PREVIEW_PROJECT_ID` | `prj_fQllGlbJYrAMEumN6tBM7UG8HsJK` |
+| `VERCEL_PRODUCTION_PROJECT_ID` | `prj_Nvmmgkrkwe0IyprzmIKPYwhxDBDT` |
+| `NEON_PREVIEW_PROJECT_ID` | `withered-shadow-45786432` |
+| `NEON_PREVIEW_PARENT_BRANCH_ID` | `br-raspy-frost-b8rb1wkq` |
+| `NEON_PRODUCTION_PROJECT_ID` | `morning-hat-82636050` |
+| `NEON_DATABASE` | `neondb` |
+| `NEON_ROLE` | `neondb_owner` |
+
+These are resource identifiers, not credentials. They have **not** been written
+to GitHub variables because its administration API denies the setup token.
+The Vercel `bakery-ci-previews` project has Deployment Protection enabled and
+no Git repository link, so it will not duplicate the production Git integration.
+The Neon `Bakery CI previews` project is PostgreSQL 17 with a fresh empty
+`preview-baseline` branch; no production data was copied. An empty baseline is
+valid because each preview runs all migrations from zero. A validation child
+`br-super-cloud-b897sbjn` was created from this baseline to verify branch
+creation; no database migrations or application deployments were run.
+
+The account rejects explicit custom suspend intervals, including 300 seconds,
+with HTTP 412. The pinned action now passes the documented value `0` to use the
+account default, which succeeded in the preview branch-creation check.
+
+Remaining account blocker: `GITHUB_SETUP_TOKEN` authenticates but still receives
+HTTP 403 for environment creation (`administration=write` required), Actions
+secrets/variables, branch protection, and webhook inventory. Update that
+credential's repository permissions as described below and reapply it securely.
+Do not create duplicate preview projects or mint deployment keys until they can
+be transferred directly into GitHub encrypted environment secrets. Vercel's API
+supports project-scoped deployment tokens (`projectId`); use the preview project
+scope rather than reusing the broad setup credential. Neon likewise supports
+organization API keys scoped to one project. No runtime preview secrets have
+been minted or installed yet. Existing test failures remain release blockers.
+
+This change prepares automation for review; the live setup progress above
+records the separate preview resources created. No production resources were
+changed, no production migrations ran, and no application deployment was made.
+Neither deployment switch has been enabled by this task.
 
 ## Inspection
 
@@ -21,9 +69,13 @@ inventory on October 30, 2026 found no Actions workflows, deployment
 environments, repository rulesets, open PRs, or deployment records. The connected
 GitHub integration returns HTTP 403 for webhooks, Actions permissions,
 secret/variable metadata, branch protection, and preview-environment creation.
-Repository admin status does not override this integration's narrower API
-permissions. No Vercel or Neon management credentials were configured, so their
-live account settings remain unverified. Before activation, inspect
+Repository admin status does not override a credential's narrower API
+permissions. Vercel and Neon setup credentials are now available: inspection
+confirmed the existing Vercel `bakery` Django project links to this repository's
+`main` branch, uses automatic system environment variables and Deployment
+Protection, and has separate production/development database bindings. The
+existing Neon project has a default `production` branch and other development
+branches; none were modified. Before activation, complete the inventory of
 GitHub Actions, environments, branch rules and installed apps; Vercel Git
 settings, build commands, deploy hooks and environment variables; and Neon
 GitHub/Vercel integrations and branch automation. Remove or disable overlapping
@@ -86,8 +138,10 @@ feature branches and open PRs; the runner's read-only token cannot do that.
 
 ### Current account-setup prerequisites
 
-The cloud configuration draft declares these setup-only HTTPS credentials;
-enter their values securely in environment settings, not in chat:
+The cloud configuration declares these setup-only HTTPS credentials. Values
+are supplied and authentication is verified; only the GitHub credential's
+administration permissions still need correction. Update it securely in
+environment settings, not in chat. Keep the working Vercel/Neon bindings:
 
 | Cloud secret | Destination | Use |
 | --- | --- | --- |
@@ -180,9 +234,10 @@ with automation bypass secrets as needed. Existing production environment
 values stay intact; Actions explicitly supplies the intended database/key for
 each new deployment. Do not use a Production DATABASE_URL as a Preview default.
 
-Create/review the separate Neon preview project and its baseline yourself after
-approval. It should contain the migrated schema, `django_migrations` records,
-and fictional data only. Do not copy production customers, contacts, users,
+Reuse the separate Neon preview project and baseline listed above. An empty
+baseline is supported; if a baseline already has application tables, it must
+also have matching `django_migrations` records. Use fictional data only. Do not
+copy production customers, contacts, users,
 password hashes, sessions, or orders. A schema-only clone without migration
 history is not a usable baseline for `manage.py migrate`. Verify the preview
 role has permission to apply schema migrations. Preview runs never reset a
@@ -238,7 +293,7 @@ and schema changes are not a single distributed transaction.
    deliberately failing migration on a disposable preview blocks deployment.
 4. Review the production migration policy, backups, Vercel Git deployment
    handoff and protected-environment approval. **Only after your explicit
-   approval**, enable production releases and adopt the single-coordinator
+   approval for the first production migration/deployment**, enable production releases and adopt the single-coordinator
    configuration. Merge a reviewed PR and approve its environment deployment.
 5. Verify the first candidate is protected, migrations target the approved direct
    endpoint, and promotion occurs only after migration and smoke success.
