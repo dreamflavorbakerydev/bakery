@@ -6,7 +6,7 @@ from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Count, Sum
+from django.db.models import Sum
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -137,35 +137,18 @@ def order_list(request):
     office = is_office(request.user)
     status_filter = 'all'
     status_groups = []
-    scope = request.GET.get('scope', 'overview' if office else 'all')
+    scope = request.GET.get('scope', 'pending' if office else 'all')
     if scope == 'pending':
         records = records.exclude(status__in=[m.OrderStatus.DRAFT, m.OrderStatus.CANCELLED, m.OrderStatus.DELIVERED, m.OrderStatus.INVOICED])
     elif scope == 'approval':
         records = records.filter(status=m.OrderStatus.SUBMITTED, requires_approval=True)
-    elif scope == 'overview' and office:
-        lifecycle_statuses = [m.OrderStatus.SUBMITTED, m.OrderStatus.CONFIRMED, m.OrderStatus.PRODUCTION,
-            m.OrderStatus.READY_TO_PICK, m.OrderStatus.PICKED, m.OrderStatus.LOADED,
-            m.OrderStatus.OUT_FOR_DELIVERY, m.OrderStatus.DELIVERED]
-        overview_records = records.filter(status__in=lifecycle_statuses)
-        status_filter = request.GET.get('status', 'active')
-        if status_filter == 'active':
-            records = overview_records
-        elif status_filter in lifecycle_statuses:
-            records = records.filter(status=status_filter)
-        else:
-            status_filter = 'all'
-        status_counts = dict(overview_records.order_by().values('status').annotate(count=Count('pk')).values_list('status', 'count'))
-        status_groups = [{'value': status, 'label': label, 'count': status_counts.get(status, 0)}
-            for status, label in m.OrderStatus.choices if status in lifecycle_statuses]
     else:
         scope = 'all'
-        status_filter = 'all'
-        status_groups = []
     totals = records.aggregate(value=Sum('total'))
-    if not form.errors and not request.GET.get('date') and not request.GET.get('status') and scope in ('all', 'overview', 'pending'):
+    if not form.errors and not request.GET.get('date') and scope in ('all', 'pending'):
         mark_orders_seen(request.user, opened_at)
     return render(request, 'bakery/orders.html', {'page': paginate(request, records), 'filter_form': form,
-        'scope': scope, 'status_filter': status_filter, 'status_groups': status_groups,
+        'scope': scope,
         'selected_date': form.cleaned_data.get('date') if form.is_valid() else None,
         'order_count': records.count(), 'order_total': totals['value'] or Decimal('0')})
 

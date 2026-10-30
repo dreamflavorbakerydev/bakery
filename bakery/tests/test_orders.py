@@ -175,7 +175,7 @@ class OrderingTests(FoundationFixture):
         self.assertEqual(len(response.context['rows']), 37)
         self.assertContains(response, extra[-1].product_name)
         self.assertContains(response, 'product-sku-label')
-        self.assertContains(response, self.link.customer_sku)
+        self.assertContains(response, self.product.internal_product_code)
         self.assertNotContains(response, 'Inactive product')
         self.assertContains(response, 'data-unit-cents="1925"')
         self.assertFalse(m.CustomerProduct.objects.filter(customer=self.customer).exists())
@@ -288,31 +288,34 @@ class OrderingTests(FoundationFixture):
             change_status(self.office, order.pk, m.OrderStatus.DELIVERED)
         for status in (m.OrderStatus.CONFIRMED, m.OrderStatus.PRODUCTION, m.OrderStatus.READY_TO_PICK, m.OrderStatus.DELIVERED):
             change_status(self.office, order.pk, status)
-        self.assertContains(self.client.get(reverse('orders')), order.order_number)
-        self.assertNotContains(self.client.get(reverse('orders'), {'scope': 'pending'}), order.order_number)
+        self.assertNotContains(self.client.get(reverse('orders')), order.order_number)
         self.assertContains(self.client.get(reverse('orders'), {'scope': 'all', 'date': '2026-10-06'}), order.order_number)
 
-    def test_office_status_overview_counts_statuses_and_filters_by_delivery_date(self):
+    def test_office_dashboard_groups_orders_by_status_and_filters_delivery_date(self):
         first = submit_order(self.user, self.draft().pk)
         second = submit_order(self.user, self.draft(2).pk)
         change_status(self.office, first.pk, m.OrderStatus.CONFIRMED)
         self.client.force_login(self.office)
 
-        response = self.client.get(reverse('orders'), {'date': self.delivery.isoformat()})
-        self.assertContains(response, 'Order overview')
-        self.assertEqual(response.context['scope'], 'overview')
-        counts = {group['value']: group['count'] for group in response.context['status_groups']}
-        self.assertEqual(counts[m.OrderStatus.SUBMITTED], 1)
-        self.assertEqual(counts[m.OrderStatus.CONFIRMED], 1)
+        response = self.client.get(reverse('dashboard'), {'date': self.delivery.isoformat()})
+        groups = response.context['order_status_groups']
+        self.assertEqual([group['label'] for group in groups], [
+            'Submitted', 'Confirmed', 'Production', 'Ready to pick', 'Delivered'])
+        self.assertEqual(groups[0]['count'], 1)
+        self.assertEqual(groups[0]['orders'][0].pk, second.pk)
+        self.assertEqual(groups[1]['count'], 1)
+        self.assertEqual(groups[1]['orders'][0].pk, first.pk)
         self.assertContains(response, first.order_number)
         self.assertContains(response, second.order_number)
 
-        response = self.client.get(reverse('orders'), {'date': self.delivery.isoformat(), 'status': m.OrderStatus.CONFIRMED})
-        self.assertContains(response, first.order_number)
+        response = self.client.get(reverse('dashboard'), {'date': '2026-10-08'})
+        self.assertTrue(all(group['count'] == 0 for group in response.context['order_status_groups']))
+        self.assertNotContains(response, first.order_number)
         self.assertNotContains(response, second.order_number)
-        counts = {group['value']: group['count'] for group in response.context['status_groups']}
-        self.assertEqual(counts[m.OrderStatus.SUBMITTED], 1)
-        self.assertEqual(counts[m.OrderStatus.CONFIRMED], 1)
+
+        orders_response = self.client.get(reverse('orders'))
+        self.assertEqual(orders_response.context['scope'], 'pending')
+        self.assertNotContains(orders_response, 'Status overview')
 
     def test_reorder_uses_quantities_and_new_price(self):
         order = submit_order(self.user, self.draft(7).pk)
@@ -335,7 +338,8 @@ class OrderingTests(FoundationFixture):
             self.assertEqual(self.client.get(url, follow=True).status_code, 200)
         self.client.force_login(self.office)
         self.assertEqual(self.client.get(reverse('bake-plan')).status_code, 200)
-        self.assertContains(self.client.get(reverse('orders')), 'Print overview')
+        self.assertContains(self.client.get(reverse('dashboard')), 'Print status overview')
+        self.assertContains(self.client.get(reverse('orders')), 'Print orders')
         self.assertContains(self.client.get(reverse('bake-plan')), 'Print bake totals')
         self.assertContains(self.client.get(reverse('order-detail', args=[order.pk])), 'Print order')
 

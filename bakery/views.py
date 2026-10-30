@@ -5,6 +5,7 @@ from pathlib import Path
 from zipfile import BadZipFile
 from zoneinfo import ZoneInfo
 
+from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -40,6 +41,10 @@ def paginate(request, records):
     return Paginator(records, 30).get_page(request.GET.get('page'))
 
 
+class OverviewOrderDateForm(forms.Form):
+    date = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}))
+
+
 @login_required
 def dashboard(request):
     if is_office(request.user):
@@ -59,9 +64,33 @@ def dashboard(request):
             ('Logins & access', 'Manage logins, roles, and customer assignments.', m.CustomerAccess.objects.filter(active=True).exists(), 'workspace-users'),
         ]
         completed = sum(check[2] for check in checks)
+        order_date_form = OverviewOrderDateForm(request.GET)
+        status_definitions = [
+            (m.OrderStatus.SUBMITTED, 'Submitted'),
+            (m.OrderStatus.CONFIRMED, 'Confirmed'),
+            (m.OrderStatus.PRODUCTION, 'Production'),
+            (m.OrderStatus.READY_TO_PICK, 'Ready to pick'),
+            (m.OrderStatus.DELIVERED, 'Delivered'),
+        ]
+        orders_by_status = {status: [] for status, _ in status_definitions}
+        if order_date_form.is_valid():
+            overview_orders = m.Order.objects.filter(status__in=orders_by_status).select_related(
+                'customer', 'customer_location'
+            ).order_by('requested_delivery_date', 'created_at')
+            selected_delivery_date = order_date_form.cleaned_data['date']
+            if selected_delivery_date:
+                overview_orders = overview_orders.filter(requested_delivery_date=selected_delivery_date)
+            for order in overview_orders:
+                orders_by_status[order.status].append(order)
+        order_status_groups = [
+            {'status': status, 'label': label, 'orders': orders_by_status[status],
+             'count': len(orders_by_status[status])}
+            for status, label in status_definitions
+        ]
         return render(request, 'bakery/operations_dashboard.html', {'counts': counts, 'checks': checks,
             'pending_count': m.Order.objects.exclude(status__in=[m.OrderStatus.DRAFT, m.OrderStatus.CANCELLED, m.OrderStatus.DELIVERED, m.OrderStatus.INVOICED]).count(),
             'approval_count': m.Order.objects.filter(status=m.OrderStatus.SUBMITTED, requires_approval=True).count(),
+            'order_date_form': order_date_form, 'order_status_groups': order_status_groups,
             'completed': completed, 'progress': round(completed / len(checks) * 100),
             'changes': m.MasterDataChange.objects.select_related('actor').order_by('-created_at')[:5], 'today': timezone.localdate()})
     if is_production(request.user):

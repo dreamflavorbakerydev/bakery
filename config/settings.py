@@ -65,6 +65,8 @@ DATABASES = {'default': dj_database_url.parse(
 )}
 if DATABASES['default']['ENGINE'] != 'django.db.backends.postgresql':
     raise ImproperlyConfigured('DATABASE_URL must use PostgreSQL; SQLite is not supported.')
+if os.environ.get('DJANGO_TEST_DATABASE_NAME'):
+    DATABASES['default'].setdefault('TEST', {})['NAME'] = os.environ['DJANGO_TEST_DATABASE_NAME']
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
