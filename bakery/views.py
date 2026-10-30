@@ -10,14 +10,15 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Count, OuterRef, Prefetch, Q, Subquery, Value
-from django.db.models.functions import Coalesce, Lower, NullIf
+from django.db.models import Count, IntegerField, OuterRef, Prefetch, Q, Subquery, Value
+from django.db.models.functions import Cast, Coalesce, Lower, NullIf
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
 from bakery import models as m
+from bakery.product_ids import product_id_expression
 from bakery.forms import ImportForm
 from bakery.services.access import customers_for, is_office, is_production, locations_for, products_for
 from bakery.services.delivery import available_delivery_dates
@@ -129,7 +130,7 @@ def customers(request):
 @office_required
 def products(request):
     query = request.GET.get('q', '').strip()
-    records = m.Product.objects.select_related('source_record').prefetch_related(Prefetch('zone_prices',
+    records = m.Product.objects.annotate(catalog_product_id=product_id_expression()).select_related('source_record').prefetch_related(Prefetch('zone_prices',
         queryset=current_period(m.ProductZonePrice.objects.all(), timezone.localdate()).order_by('zone'), to_attr='current_prices'))
     category = request.GET.get('category', '')
     if category:
@@ -137,9 +138,10 @@ def products(request):
     if request.GET.get('review') == '1':
         records = records.exclude(source_record__review_notes='').filter(source_record__isnull=False)
     if query:
-        records = records.filter(Q(product_name__icontains=query) | Q(internal_product_code__icontains=query) | Q(upc__icontains=query) | Q(sku__icontains=query))
+        records = records.filter(Q(product_name__icontains=query) | Q(internal_product_code__icontains=query) | Q(upc__icontains=query) | Q(sku__icontains=query) | Q(catalog_product_id__icontains=query))
     columns = {
         'product': Lower('product_name'),
+        'product_id': Cast('catalog_product_id', IntegerField()),
         'sku': Coalesce(NullIf('sku', Value('')), NullIf('upc', Value('')), 'internal_product_code'),
         'size': Lower(NullIf('size', Value(''))), 'tray': 'units_per_tray',
         'zone1': 'sort_price', 'zone2': 'sort_price', 'zone3': 'sort_price',
@@ -195,11 +197,12 @@ def pricing(request):
 @office_required
 def price_records(request):
     query = request.GET.get('q', '').strip()
-    prices = m.ProductZonePrice.objects.select_related('product').order_by('product__product_name', 'zone', '-effective_date')
+    prices = m.ProductZonePrice.objects.annotate(catalog_product_id=product_id_expression('product__')).select_related('product').order_by('product__product_name', 'zone', '-effective_date')
     if query:
-        prices = prices.filter(Q(product__product_name__icontains=query) | Q(product__internal_product_code__icontains=query) | Q(product__sku__icontains=query))
+        prices = prices.filter(Q(product__product_name__icontains=query) | Q(product__internal_product_code__icontains=query) | Q(product__sku__icontains=query) | Q(catalog_product_id__icontains=query))
     prices, sorting = sort_records(request, prices, {
-        'product': Lower('product__product_name'), 'zone': 'zone', 'ordering': 'price',
+        'product': Lower('product__product_name'), 'product_id': Cast('catalog_product_id', IntegerField()),
+        'zone': 'zone', 'ordering': 'price',
         'retail': 'retail_price', 'return': 'return_price', 'effective': 'effective_date', 'expires': 'expiration_date',
     }, 'product')
     return render(request, 'bakery/pricing.html', {'page': paginate(request, prices), 'q': query, **sorting})
